@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "NanoBanana AI Automator",
+  "version": "1.0",
+  "description": "Automate image generation from a list of prompts.",
+  "permissions": ["sidePanel", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}

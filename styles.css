@@ -1,0 +1,118 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+  margin: 0;
+  padding: 16px;
+  font-size: 14px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+label {
+  font-weight: 600;
+  color: #aaaaaa;
+}
+
+input[type="file"],
+input[type="number"] {
+  background-color: #2d2d2d;
+  color: #fff;
+  border: 1px solid #3d3d3d;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+#startBtn {
+  background-color: #4caf50;
+  color: white;
+}
+
+#startBtn:disabled {
+  background-color: #2e3b2f;
+  color: #666;
+  cursor: not-allowed;
+}
+
+#stopBtn {
+  background-color: #f44336;
+  color: white;
+}
+
+#stopBtn:disabled {
+  background-color: #4a2c2c;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.stats {
+  background-color: #252526;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #3d3d3d;
+}
+
+.stats p {
+  margin: 4px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.log-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-grow: 1;
+}
+
+#logArea {
+  height: 150px;
+  background-color: #000;
+  border: 1px solid #333;
+  padding: 8px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.log-entry {
+  margin-bottom: 4px;
+  border-bottom: 1px solid #222;
+  padding-bottom: 2px;
+}
+.log-success { color: #81c784; }
+.log-error { color: #e57373; }
+.log-info { color: #64b5f6; }
