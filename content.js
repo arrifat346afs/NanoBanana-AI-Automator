@@ -21,28 +21,67 @@ function logToSidePanel(msg, type = 'info') {
 }
 
 async function handleGeneration(promptText) {
-    logToSidePanel("Finding textarea...");
+    logToSidePanel("Finding input element...");
     const textArea = document.getElementById('PINHOLE_TEXT_AREA_ELEMENT_ID') ||
+        document.querySelector('[data-slate-editor="true"]') ||
+        document.querySelector('div[contenteditable="true"][role="textbox"]') ||
         document.querySelector('textarea.sc-e586993-0');
 
     if (!textArea) {
         throw new Error('Prompt textarea not found.');
     }
 
-    // 2. Insert Text with robust event simulation
+    // Detect if contenteditable div or textarea
+    const isContentEditable = textArea.hasAttribute('contenteditable') && textArea.getAttribute('role') === 'textbox';
+
     logToSidePanel("Setting text...");
     textArea.focus();
-    textArea.value = promptText;
 
-    // React Tracker Hack
-    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-    if (nativeInputValueSetter) {
-        nativeInputValueSetter.call(textArea, promptText);
+    if (isContentEditable) {
+        // Handle Slate.js contenteditable div
+        textArea.focus();
+        await new Promise(r => setTimeout(r, 100));
+        
+        // Dispatch beforeinput event (what Slate.js actually listens to)
+        const beforeInputEvent = new InputEvent('beforeinput', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertText',
+            data: promptText
+        });
+        textArea.dispatchEvent(beforeInputEvent);
+        
+        // If beforeinput not handled, use execCommand
+        if (!beforeInputEvent.defaultPrevented) {
+            document.execCommand('insertText', false, promptText);
+        }
+        
+        // Dispatch input event
+        const inputEvent = new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            inputType: 'insertText',
+            data: promptText
+        });
+        textArea.dispatchEvent(inputEvent);
+        
+        // Dispatch compositionend
+        textArea.dispatchEvent(new CompositionEvent('compositionend', {
+            bubbles: true,
+            cancelable: true
+        }));
+    } else {
+        // Handle textarea (fallback)
+        textArea.value = promptText;
+
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(textArea, promptText);
+        }
+
+        textArea.dispatchEvent(new Event('input', { bubbles: true }));
+        textArea.dispatchEvent(new Event('change', { bubbles: true }));
     }
-
-    // Dispatch standard events
-    textArea.dispatchEvent(new Event('input', { bubbles: true }));
-    textArea.dispatchEvent(new Event('change', { bubbles: true }));
 
     logToSidePanel("Waiting 2s to simulate human typing...", "info");
     await new Promise(r => setTimeout(r, 2000));
@@ -73,61 +112,5 @@ async function handleGeneration(promptText) {
 
     await new Promise(r => setTimeout(r, 100));
 
-    // 3. Find Button (Backup/Confirmation)
-    // The 'Add' button shares the class 'sc-c177465c-1', so we must be more specific.
-    // Create Button Class: sc-c177465c-1 gdArnN sc-408537d4-2 gdXWm
-    // Add Button Class:    sc-c177465c-1 hVamcH sc-d02e9a37-1 hvUQuN
-
-    const getBtn = () => {
-        // Priority 1: Exact class match for Create button
-        let b = document.querySelector('button.sc-c177465c-1.gdArnN');
-
-        // Priority 2: Text match "Create", ensuring we don't pick up the "Add" button
-        if (!b) {
-            const buttons = Array.from(document.querySelectorAll('button'));
-            b = buttons.find(btn => {
-                const text = btn.innerText.trim();
-                // Strict check: Must contain "Create" and NOT be the "add" button
-                return text.includes('Create') && !btn.querySelector('i.google-symbols.sc-d02e9a37-7');
-            });
-        }
-        return b;
-    };
-
-    logToSidePanel("Waiting for button to be enabled (backup)...");
-
-    // 4. Wait for button to be enabled
-    let attempts = 0;
-    let buttonClicked = false;
-
-    while (attempts < 20) {
-        const btn = getBtn();
-        if (btn) {
-            if (!btn.disabled) {
-                logToSidePanel("Button is enabled. Clicking...", "success");
-
-                // Mouse Events
-                ['mousedown', 'mouseup', 'click'].forEach(type => {
-                    btn.dispatchEvent(new MouseEvent(type, {
-                        view: window,
-                        bubbles: true,
-                        cancelable: true,
-                        buttons: 1
-                    }));
-                });
-
-                btn.click();
-                buttonClicked = true;
-                return;
-            }
-        }
-
-        // Pulse events periodically in case UI needs wakeup
-        if (attempts % 5 === 0) {
-            textArea.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-
-        await new Promise(r => setTimeout(r, 500));
-        attempts++;
-    }
+    logToSidePanel("Generation triggered via Enter key.", "success");
 }
