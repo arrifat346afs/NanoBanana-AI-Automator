@@ -21,10 +21,84 @@ function log(msg, type = 'info') {
   logArea.scrollTop = logArea.scrollHeight;
 }
 
-// Message Listener for Content Script logs
-chrome.runtime.onMessage.addListener((request) => {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function sendKey(target, key, code, keyCode, options = {}) {
+  const params = {
+    key,
+    code,
+    windowsVirtualKeyCode: keyCode,
+    nativeVirtualKeyCode: keyCode,
+    modifiers: options.modifiers || 0
+  };
+
+  await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
+    ...params,
+    type: options.type || 'rawKeyDown'
+  });
+
+  await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
+    ...params,
+    type: 'keyUp'
+  });
+}
+
+async function typePromptAndPressEnterInTab(tabId, prompt) {
+  if (!tabId) {
+    throw new Error('No target tab found for prompt input');
+  }
+
+  if (!prompt || !prompt.trim()) {
+    throw new Error('Prompt is empty');
+  }
+
+  const target = { tabId };
+  let attached = false;
+
+  try {
+    await chrome.debugger.attach(target, '1.3');
+    attached = true;
+
+    // Ctrl+A then Backspace clears the focused editor through the page's own input handlers.
+    await sendKey(target, 'a', 'KeyA', 65, { modifiers: 2 });
+    await sleep(120);
+    await sendKey(target, 'Backspace', 'Backspace', 8);
+    await sleep(120);
+
+    // Input.insertText behaves like real text entry for focused inputs/contenteditable editors.
+    await chrome.debugger.sendCommand(target, 'Input.insertText', { text: prompt });
+    await sleep(500);
+
+    await sendKey(target, 'Enter', 'Enter', 13);
+  } finally {
+    if (attached) {
+      await chrome.debugger.detach(target).catch(() => { });
+    }
+  }
+}
+
+// Message Listener for Content Script logs/actions
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'log') {
     log(request.message, request.type || 'info');
+  }
+
+  if (request.action === 'trusted_type_and_submit_prompt') {
+    const tabId = sender.tab?.id || currentTabId;
+
+    typePromptAndPressEnterInTab(tabId, request.prompt || '')
+      .then(() => {
+        log('Typed prompt and pressed Enter in page.', 'success');
+        sendResponse({ success: true });
+      })
+      .catch((err) => {
+        log(`Trusted prompt input failed: ${err.message}`, 'error');
+        sendResponse({ success: false, error: err.message });
+      });
+
+    return true;
   }
 });
 
@@ -67,7 +141,7 @@ async function processNextPrompt() {
     return;
   }
 
-  const prompt = prompts[currentIndex];
+  const prompt = prompts[currentIndex].replace(/NthR/gi, currentIndex + 1);
   updateStatus(`Processing ${currentIndex + 1}/${prompts.length}`);
   log(`Starting prompt: "${prompt.substring(0, 20)}..."`);
 
